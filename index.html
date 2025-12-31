@@ -1,0 +1,249 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Premium New Year Postcard 2026</title>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+
+<link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@700&family=Italianno&family=Pacifico&family=Libre+Baskerville&family=EB+Garamond:wght@600&family=Dancing+Script:wght@600&family=Great+Vibes&display=swap" rel="stylesheet">
+
+<style>
+body{margin:0;background:#efe3cf;font-family:'EB Garamond',serif;}
+.wrapper{display:flex;flex-wrap:wrap;gap:14px;padding:14px;}
+.controls{flex:1 1 320px;background:#fff;padding:14px;border-radius:12px;}
+.controls h3{margin:14px 0 6px;font-size:14px;border-bottom:1px solid #ddd;}
+.controls input,.controls textarea,.controls select,button{width:100%;padding:10px;margin:6px 0;font-size:14px;}
+.preview{flex:1 1 420px;display:flex;justify-content:center;}
+
+.postcard{
+  width:14cm;height:9cm;
+  background:url("postcard-bg.jpeg") center/cover no-repeat;
+  position:relative;
+  padding:12px 12px 14px 6px;
+  box-shadow:0 12px 30px rgba(0,0,0,.35);
+}
+
+/* LEFT */
+.headline,.wish,.sender{width:48%;}
+.headline{text-align:center;color:#6f1c1c;margin-bottom:2px;}
+.headline span{display:block;}
+.wish{white-space:pre-wrap;line-height:1.55;}
+.sender{position:absolute;bottom:14px;left:0;font-size:14px;}
+
+/* PHOTO — SIZE LOCKED */
+.stamp-photo{
+  position:absolute;
+  left:48%;
+  top:14px;
+}
+.stamp-photo img{
+  width:100%;
+  height:100%;
+  object-fit:cover;
+  opacity:.88;
+  mix-blend-mode:multiply;
+}
+
+/* RIGHT NAME */
+.name-right{
+  position:absolute;
+  left:48%;
+  right:8px;
+  top:200px;
+  font-weight:900;
+  font-size:22px;
+  word-break:break-word;
+}
+
+/* BRAND */
+.brand-reminders{
+  position:absolute;
+  bottom:4px;
+  right:90px;
+  display:flex;
+  gap:10px;
+}
+.brand-reminders img{width:140px;}
+
+/* LOGO */
+.logo{
+  position:absolute;
+  bottom:2px;
+  right:6px;
+  width:72px;
+}
+</style>
+</head>
+
+<body>
+
+<div class="wrapper">
+
+<div class="controls">
+
+<h3>Upload Photo</h3>
+<input type="file" accept="image/*" onchange="loadPhoto(event)">
+<input type="range" min="110" max="170" value="135" oninput="resizePhoto(this.value)">
+
+<h3>Recipient</h3>
+<input id="recipientName" placeholder="Recipient Full Name" oninput="renderAll()">
+
+<h3>Headline</h3>
+<select id="headlineFont" onchange="renderAll()">
+  <option value="Playfair Display">Playfair Display</option>
+  <option value="Italianno">Italian</option>
+  <option value="Pacifico">Handwritten</option>
+</select>
+<input type="range" min="26" max="46" value="34" id="headlineSize" oninput="renderAll()">
+
+<h3>Wish Message</h3>
+<select id="wishTemplate" onchange="applyTemplate()">
+  <option value="prosperity">Prosperity</option>
+  <option value="grace">Grace</option>
+  <option value="celebration">Celebration</option>
+</select>
+
+<select id="wishFont" onchange="renderAll()">
+  <option value="EB Garamond">EB Garamond</option>
+  <option value="Dancing Script">Cursive</option>
+  <option value="Great Vibes">Luxury Script</option>
+</select>
+
+<input type="range" min="14" max="20" value="16" id="wishSize" oninput="renderAll()">
+<textarea id="wishText" rows="4" oninput="renderAll()"></textarea>
+
+<h3>Brand Reminder</h3>
+<label><input type="checkbox" value="empanorm" onchange="updateBrands()"> Empanorm LM</label><br>
+<label><input type="checkbox" value="glucoryl" onchange="updateBrands()"> Glucoryl MV</label><br>
+<label><input type="checkbox" value="rosukem" onchange="updateBrands()"> Rosukem</label>
+
+<h3>Sender</h3>
+<input id="senderName" placeholder="Sender Name" oninput="renderSender()">
+<input id="senderPlace" placeholder="Place" oninput="renderSender()">
+<input id="senderPhone" placeholder="Phone Number" oninput="renderSender()">
+
+<h3>Download</h3>
+<button type="button" onclick="downloadJPG()">Download JPG</button>
+<button type="button" onclick="downloadPDF()">Download PDF</button>
+
+</div>
+
+<div class="preview">
+<div class="postcard" id="card">
+
+<div class="headline" id="headline">
+  <span>Happy New Year</span>
+  <span>2026</span>
+</div>
+
+<div class="wish" id="wishPreview"></div>
+
+<div class="stamp-photo" id="photoBox">
+  <img id="photo">
+</div>
+
+<div class="name-right" id="rightName"></div>
+
+<div class="brand-reminders" id="brandBox"></div>
+
+<div class="sender" id="senderBlock"></div>
+
+<img src="company-logo.png" class="logo">
+
+</div>
+</div>
+
+</div>
+
+<script>
+const { jsPDF } = window.jspdf;
+
+/* 🔒 LOCKED PHOTO SIZE STATE */
+let lockedPhotoWidth = 135;
+let lockedPhotoHeight = 165;
+
+const templates={
+prosperity:`May the New Year bring you abundant success, renewed energy, and fulfillment of meaningful aspirations.`,
+grace:`May the year ahead bless you with good health, peace, and lasting happiness.`,
+celebration:`Wishing you a joyful New Year filled with success and celebrations.`
+};
+
+function resizePhoto(size){
+  lockedPhotoWidth = size;
+  lockedPhotoHeight = size * 1.22;
+  photoBox.style.width = lockedPhotoWidth + "px";
+  photoBox.style.height = lockedPhotoHeight + "px";
+}
+
+function applyTemplate(){
+  wishText.value = templates[wishTemplate.value];
+  renderAll();
+}
+
+function renderAll(){
+  const name = recipientName.value || "NAME";
+  headline.style.fontFamily = headlineFont.value;
+  headline.style.fontSize = headlineSize.value + "px";
+  wishPreview.style.fontFamily = wishFont.value;
+  wishPreview.style.fontSize = wishSize.value + "px";
+  wishPreview.innerText = `Dear\n${name},\n${wishText.value}`;
+  rightName.innerText = name.toUpperCase();
+}
+
+function updateBrands(){
+  brandBox.innerHTML = "";
+  document.querySelectorAll("input[type=checkbox]:checked").forEach(b=>{
+    const img=document.createElement("img");
+    img.src = b.value==="empanorm"?"empanorm-lm.png":
+              b.value==="glucoryl"?"glucoryl-mv.png":"rosukem.png";
+    brandBox.appendChild(img);
+  });
+}
+
+function renderSender(){
+  senderBlock.innerText = `Regards,\n${senderName.value}\n${senderPlace.value} | ${senderPhone.value}`;
+}
+
+function loadPhoto(e){
+  photo.src = URL.createObjectURL(e.target.files[0]);
+}
+
+/* ✅ DOWNLOAD — CLONE SAFE */
+function downloadJPG(){
+  const clone = card.cloneNode(true);
+  clone.style.position = "fixed";
+  clone.style.left = "-9999px";
+  document.body.appendChild(clone);
+
+  html2canvas(clone,{scale:2,useCORS:true}).then(canvas=>{
+    document.body.removeChild(clone);
+    const a=document.createElement("a");
+    a.href=canvas.toDataURL("image/jpeg",1);
+    a.download="NewYear2026.jpg";
+    a.click();
+  });
+}
+
+function downloadPDF(){
+  const clone = card.cloneNode(true);
+  clone.style.position = "fixed";
+  clone.style.left = "-9999px";
+  document.body.appendChild(clone);
+
+  html2canvas(clone,{scale:2,useCORS:true}).then(canvas=>{
+    document.body.removeChild(clone);
+    const pdf=new jsPDF("landscape","mm",[140,90]);
+    pdf.addImage(canvas.toDataURL("image/jpeg",1),"JPEG",0,0,140,90);
+    pdf.save("NewYear2026.pdf");
+  });
+}
+
+resizePhoto(135);
+applyTemplate();
+renderAll();
+</script>
+
+</body>
+</html>
